@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-nx",
-  "version": "110.0.0",
+  "version": "111.0.0",
   "main": "./index.js",
   "peerDependencies": {
     "@typescript-eslint/parser": "~5.10.0",
