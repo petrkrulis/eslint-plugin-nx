@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateVersionJsonExpression = exports.validatePackageGroup = exports.validateImplemenationNode = exports.validateEntry = exports.checkCollectionNode = exports.checkCollectionFileNode = exports.RULE_NAME = void 0;
-const app_root_1 = require("nx/src/utils/app-root");
+const app_root_1 = require("@nrwl/devkit");
 const devkit_1 = require("@nrwl/devkit");
 const runtime_lint_utils_1 = require("@nrwl/workspace/src/utils/runtime-lint-utils");
 const fs_1 = require("fs");

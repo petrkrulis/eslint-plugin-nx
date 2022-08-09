@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RULE_NAME = void 0;
-const app_root_1 = require("nx/src/utils/app-root");
+const app_root_1 = require("@nrwl/devkit");
 const devkit_1 = require("@nrwl/devkit");
 const fileutils_1 = require("@nrwl/workspace/src/utilities/fileutils");
 const graph_utils_1 = require("@nrwl/workspace/src/utils/graph-utils");

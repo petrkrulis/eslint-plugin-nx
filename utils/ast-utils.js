@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getRelativeImportPath = exports.getBarrelEntryPointProjectNode = exports.getBarrelEntryPointByImportScope = void 0;
-const app_root_1 = require("nx/src/utils/app-root");
+const app_root_1 = require("@nrwl/devkit");
 const devkit_1 = require("@nrwl/devkit");
 const typescript_1 = require("@nrwl/workspace/src/utilities/typescript");
 const fs_1 = require("fs");
