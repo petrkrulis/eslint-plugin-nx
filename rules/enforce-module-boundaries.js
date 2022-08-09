@@ -1,19 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RULE_NAME = void 0;
-const app_root_1 = require("nx/src/utils/app-root");
-const runtime_lint_utils_1 = require("@nrwl/workspace/src/utils/runtime-lint-utils");
-const experimental_utils_1 = require("@typescript-eslint/experimental-utils");
-const create_eslint_rule_1 = require("../utils/create-eslint-rule");
 const devkit_1 = require("@nrwl/devkit");
-const project_graph_1 = require("@nrwl/workspace/src/core/project-graph");
-const file_utils_1 = require("@nrwl/workspace/src/core/file-utils");
-const target_project_locator_1 = require("@nrwl/workspace/src/core/target-project-locator");
-const graph_utils_1 = require("@nrwl/workspace/src/utils/graph-utils");
 const fileutils_1 = require("@nrwl/workspace/src/utilities/fileutils");
-const chalk = require("chalk");
+const graph_utils_1 = require("@nrwl/workspace/src/utils/graph-utils");
+const runtime_lint_utils_1 = require("@nrwl/workspace/src/utils/runtime-lint-utils");
+const utils_1 = require("@typescript-eslint/utils");
+const target_project_locator_1 = require("nx/src/utils/target-project-locator");
 const path_1 = require("path");
 const ast_utils_1 = require("../utils/ast-utils");
+const create_eslint_rule_1 = require("../utils/create-eslint-rule");
+const project_graph_utils_1 = require("../utils/project-graph-utils");
 exports.RULE_NAME = 'enforce-module-boundaries';
 exports.default = (0, create_eslint_rule_1.createESLintRule)({
     name: exports.RULE_NAME,
@@ -31,6 +28,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                     enforceBuildableLibDependency: { type: 'boolean' },
                     allowCircularSelfDependency: { type: 'boolean' },
                     banTransitiveDependencies: { type: 'boolean' },
+                    checkNestedExternalImports: { type: 'boolean' },
                     allow: [{ type: 'string' }],
                     depConstraints: [
                         {
@@ -58,6 +56,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             noImportsOfLazyLoadedLibraries: `Imports of lazy-loaded libraries are forbidden`,
             projectWithoutTagsCannotHaveDependencies: `A project without tags matching at least one constraint cannot depend on any libraries`,
             bannedExternalImportsViolation: `A project tagged with "{{sourceTag}}" is not allowed to import the "{{package}}" package`,
+            nestedBannedExternalImportsViolation: `A project tagged with "{{sourceTag}}" is not allowed to import the "{{package}}" package. Nested import found at {{childProjectName}}`,
             noTransitiveDependencies: `Transitive dependencies are not allowed. Only packages defined in the "package.json" can be imported`,
             onlyTagsConstraintViolation: `A project tagged with "{{sourceTag}}" can only depend on libs tagged with {{tags}}`,
             notTagsConstraintViolation: `A project tagged with "{{sourceTag}}" can not depend on libs tagged with {{tags}}\n\nViolation detected in:\n{{projects}}`,
@@ -70,43 +69,19 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             enforceBuildableLibDependency: false,
             allowCircularSelfDependency: false,
             banTransitiveDependencies: false,
+            checkNestedExternalImports: false,
         },
     ],
-    create(context, [{ allow, depConstraints, enforceBuildableLibDependency, allowCircularSelfDependency, banTransitiveDependencies, },]) {
+    create(context, [{ allow, depConstraints, enforceBuildableLibDependency, allowCircularSelfDependency, banTransitiveDependencies, checkNestedExternalImports, },]) {
         /**
          * Globally cached info about workspace
          */
-        const projectPath = (0, devkit_1.normalizePath)(global.projectPath || app_root_1.appRootPath);
-        /**
-         * Only reuse graph when running from terminal
-         * Enforce every IDE change to get a fresh nxdeps.json
-         */
-        if (!global.projectGraph || !(0, runtime_lint_utils_1.isTerminalRun)()) {
-            const nxJson = (0, file_utils_1.readNxJson)();
-            global.npmScope = nxJson.npmScope;
-            global.workspaceLayout = nxJson.workspaceLayout;
-            /**
-             * Because there are a number of ways in which the rule can be invoked (executor vs ESLint CLI vs IDE Plugin),
-             * the ProjectGraph may or may not exist by the time the lint rule is invoked for the first time.
-             */
-            try {
-                global.projectGraph = (0, runtime_lint_utils_1.mapProjectGraphFiles)((0, project_graph_1.readCachedProjectGraph)());
-            }
-            catch (_a) {
-                const WARNING_PREFIX = `${chalk.reset.keyword('orange')('warning')}`;
-                const RULE_NAME_SUFFIX = `${chalk.reset.dim('@nrwl/nx/enforce-module-boundaries')}`;
-                process.stdout
-                    .write(`${WARNING_PREFIX} No cached ProjectGraph is available. The rule will be skipped.
-        If you encounter this error as part of running standard \`nx\` commands then please open an issue on https://github.com/nrwl/nx
-        ${RULE_NAME_SUFFIX}\n`);
-            }
-        }
-        if (!global.projectGraph) {
+        const projectPath = (0, devkit_1.normalizePath)(global.projectPath || devkit_1.workspaceRoot);
+        const projectGraph = (0, project_graph_utils_1.readProjectGraph)(exports.RULE_NAME);
+        if (!projectGraph) {
             return {};
         }
-        const npmScope = global.npmScope;
         const workspaceLayout = global.workspaceLayout;
-        const projectGraph = global.projectGraph;
         if (!global.targetProjectLocator) {
             global.targetProjectLocator = new target_project_locator_1.TargetProjectLocator(projectGraph.nodes, projectGraph.externalNodes);
         }
@@ -119,7 +94,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                 return;
             }
             // accept only literals because template literals have no value
-            if (node.source.type !== experimental_utils_1.AST_NODE_TYPES.Literal) {
+            if (node.source.type !== utils_1.AST_NODE_TYPES.Literal) {
                 return;
             }
             const imp = node.source.value;
@@ -134,15 +109,19 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                 return;
             }
             // check for relative and absolute imports
-            let targetProject = (0, runtime_lint_utils_1.getTargetProjectBasedOnRelativeImport)(imp, projectPath, projectGraph, sourceFilePath);
+            const isAbsoluteImportIntoAnotherProj = (0, runtime_lint_utils_1.isAbsoluteImportIntoAnotherProject)(imp, workspaceLayout);
+            let targetProject;
+            if (isAbsoluteImportIntoAnotherProj) {
+                targetProject = (0, runtime_lint_utils_1.findTargetProject)(projectGraph, imp);
+            }
+            else {
+                targetProject = (0, runtime_lint_utils_1.getTargetProjectBasedOnRelativeImport)(imp, projectPath, projectGraph, sourceFilePath);
+            }
             if ((targetProject && sourceProject !== targetProject) ||
-                (0, runtime_lint_utils_1.isAbsoluteImportIntoAnotherProject)(imp, workspaceLayout)) {
+                isAbsoluteImportIntoAnotherProj) {
                 context.report({
                     node,
                     messageId: 'noRelativeOrAbsoluteImportsAcrossLibraries',
-                    data: {
-                        npmScope,
-                    },
                     fix(fixer) {
                         if (targetProject) {
                             const indexTsPaths = (0, ast_utils_1.getBarrelEntryPointProjectNode)(targetProject);
@@ -151,19 +130,19 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                                 if (!specifiers || specifiers.length === 0) {
                                     return;
                                 }
-                                const imports = specifiers.map((s) => {
-                                    const name = (s.imported && s.imported.name) || (s.local && s.local.name) || undefined
-                                    return name
-                                  });
+                                const imports = specifiers.map((s) => s.imported.name);
                                 // process each potential entry point and try to find the imports
                                 const importsToRemap = [];
                                 for (const entryPointPath of indexTsPaths) {
                                     for (const importMember of imports) {
                                         const importPath = (0, ast_utils_1.getRelativeImportPath)(importMember, entryPointPath.path, sourceProject.data.sourceRoot);
-                                        importsToRemap.push({
-                                            member: importMember,
-                                            importPath: importPath ? entryPointPath.importScope : imp, // we cannot remap, so leave it as is
-                                        });
+                                        // we cannot remap, so leave it as is
+                                        if (importPath) {
+                                            importsToRemap.push({
+                                                member: importMember,
+                                                importPath: entryPointPath.importScope,
+                                            });
+                                        }
                                     }
                                 }
                                 const adjustedRelativeImports = (0, runtime_lint_utils_1.groupImports)(importsToRemap);
@@ -178,7 +157,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             }
             targetProject =
                 targetProject ||
-                    (0, runtime_lint_utils_1.findProjectUsingImport)(projectGraph, targetProjectLocator, sourceFilePath, imp, npmScope);
+                    (0, runtime_lint_utils_1.findProjectUsingImport)(projectGraph, targetProjectLocator, sourceFilePath, imp);
             // If target is not part of an nx workspace, return.
             if (!targetProject) {
                 return;
@@ -204,10 +183,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                                     return;
                                 }
                                 // imported JS functions to remap
-                                const imports = specifiers.map((s) => {
-                                    const name = (s.imported && s.imported.name) || (s.local && s.local.name) || undefined
-                                    return name
-                                  });
+                                const imports = specifiers.map((s) => s.imported.name);
                                 // process each potential entry point and try to find the imports
                                 const importsToRemap = [];
                                 for (const entryPointPath of indexTsPaths) {
@@ -260,7 +236,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             }
             // check constraints between libs and apps
             // check for circular dependency
-            const circularPath = (0, graph_utils_1.checkCircularPath)(global.projectGraph, sourceProject, targetProject);
+            const circularPath = (0, graph_utils_1.checkCircularPath)(projectGraph, sourceProject, targetProject);
             if (circularPath.length !== 0) {
                 const circularFilePath = (0, graph_utils_1.findFilesInCircularPath)(circularPath);
                 // spacer text used for indirect dependencies when printing one line per file.
@@ -285,7 +261,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                 return;
             }
             // cannot import apps
-            if (targetProject.type === project_graph_1.ProjectType.app) {
+            if (targetProject.type === 'app') {
                 context.report({
                     node,
                     messageId: 'noImportsOfApps',
@@ -293,7 +269,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                 return;
             }
             // cannot import e2e projects
-            if (targetProject.type === project_graph_1.ProjectType.e2e) {
+            if (targetProject.type === 'e2e') {
                 context.report({
                     node,
                     messageId: 'noImportsOfE2e',
@@ -302,8 +278,8 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             }
             // buildable-lib is not allowed to import non-buildable-lib
             if (enforceBuildableLibDependency === true &&
-                sourceProject.type === project_graph_1.ProjectType.lib &&
-                targetProject.type === project_graph_1.ProjectType.lib) {
+                sourceProject.type === 'lib' &&
+                targetProject.type === 'lib') {
                 if ((0, runtime_lint_utils_1.hasBuildExecutor)(sourceProject) &&
                     !(0, runtime_lint_utils_1.hasBuildExecutor)(targetProject)) {
                     context.report({
@@ -314,7 +290,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                 }
             }
             // if we import a library using loadChildren, we should not import it using es6imports
-            if (node.type === experimental_utils_1.AST_NODE_TYPES.ImportDeclaration &&
+            if (node.type === utils_1.AST_NODE_TYPES.ImportDeclaration &&
                 node.importKind !== 'type' &&
                 (0, runtime_lint_utils_1.onlyLoadChildren)(projectGraph, sourceProject.name, targetProject.name, [])) {
                 context.report({
@@ -334,6 +310,9 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                     });
                     return;
                 }
+                const transitiveExternalDeps = checkNestedExternalImports
+                    ? (0, runtime_lint_utils_1.findTransitiveExternalDependencies)(projectGraph, targetProject)
+                    : [];
                 for (let constraint of constraints) {
                     if (constraint.onlyDependOnLibsWithTags &&
                         constraint.onlyDependOnLibsWithTags.length &&
@@ -362,6 +341,25 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                                         .map((projectPath) => `- ${projectPath.map((p) => p.name).join(' -> ')}`)
                                         .join('\n'),
                                 },
+                            });
+                            return;
+                        }
+                    }
+                    if (checkNestedExternalImports &&
+                        constraint.bannedExternalImports &&
+                        constraint.bannedExternalImports.length) {
+                        const matches = (0, runtime_lint_utils_1.hasBannedDependencies)(transitiveExternalDeps, projectGraph, constraint);
+                        if (matches.length > 0) {
+                            matches.forEach(([target, violatingSource, constraint]) => {
+                                context.report({
+                                    node,
+                                    messageId: 'bannedExternalImportsViolation',
+                                    data: {
+                                        sourceTag: constraint.sourceTag,
+                                        childProjectName: violatingSource.name,
+                                        package: target.data.packageName,
+                                    },
+                                });
                             });
                             return;
                         }

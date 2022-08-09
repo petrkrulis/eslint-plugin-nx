@@ -7,10 +7,10 @@ const fs_1 = require("fs");
 const path_1 = require("path");
 const ts = require("typescript");
 const devkit_2 = require("@nrwl/devkit");
-const app_root_1 = require("nx/src/utils/app-root");
+const devkit_3 = require("@nrwl/devkit");
 function tryReadBaseJson() {
     try {
-        return (0, devkit_1.readJsonFile)((0, devkit_1.joinPathFragments)(app_root_1.appRootPath, 'tsconfig.base.json'));
+        return (0, devkit_1.readJsonFile)((0, devkit_1.joinPathFragments)(devkit_3.workspaceRoot, 'tsconfig.base.json'));
     }
     catch (e) {
         devkit_2.logger.warn(`Error reading "tsconfig.base.json": \n${JSON.stringify(e)}`);
@@ -28,7 +28,7 @@ function getBarrelEntryPointByImportScope(importScope) {
     return ((_a = tsConfigBase === null || tsConfigBase === void 0 ? void 0 : tsConfigBase.compilerOptions) === null || _a === void 0 ? void 0 : _a.paths[importScope]) || null;
 }
 exports.getBarrelEntryPointByImportScope = getBarrelEntryPointByImportScope;
-function getBarrelEntryPointProjectNode(importScope) {
+function getBarrelEntryPointProjectNode(projectNode) {
     var _a;
     const tsConfigBase = tryReadBaseJson();
     if ((_a = tsConfigBase === null || tsConfigBase === void 0 ? void 0 : tsConfigBase.compilerOptions) === null || _a === void 0 ? void 0 : _a.paths) {
@@ -36,7 +36,8 @@ function getBarrelEntryPointProjectNode(importScope) {
             .filter((entry) => {
             const sourceFolderPaths = tsConfigBase.compilerOptions.paths[entry];
             return sourceFolderPaths.some((sourceFolderPath) => {
-                return sourceFolderPath.includes(importScope.data.root);
+                return (sourceFolderPath === projectNode.data.sourceRoot ||
+                    sourceFolderPath.indexOf(`${projectNode.data.sourceRoot}/`) === 0);
             });
         })
             .map((entry) => tsConfigBase.compilerOptions.paths[entry].map((x) => ({
@@ -55,10 +56,8 @@ function hasMemberExport(exportedMember, filePath) {
     // search whether there is already an export with our node
     return ((0, typescript_1.findNodes)(sourceFile, ts.SyntaxKind.Identifier).filter((identifier) => identifier.text === exportedMember).length > 0);
 }
-function getRelativeImportPath(exportedMember, importPath, basePath) {
+function getRelativeImportPath(exportedMember, filePath, basePath) {
     var _a;
-    const isDirectory = fs_1.existsSync(importPath) && fs_1.lstatSync(importPath).isDirectory()
-    const filePath = isDirectory ? `${importPath}/index.ts` : importPath
     const fileContent = (0, fs_1.readFileSync)(filePath, 'utf8');
     // use the TypeScript AST to find the path to the file where exportedMember is defined
     const sourceFile = ts.createSourceFile(filePath, fileContent, ts.ScriptTarget.Latest, true);

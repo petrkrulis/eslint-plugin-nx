@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.workspaceRules = void 0;
 const fs_1 = require("fs");
-const constants_1 = require("./constants");
 const register_1 = require("nx/src/utils/register");
+const constants_1 = require("./constants");
 exports.workspaceRules = (() => {
     // If `tools/eslint-rules` folder doesn't exist, there is no point trying to register and load it
     if (!(0, fs_1.existsSync)(constants_1.WORKSPACE_PLUGIN_DIR)) {
