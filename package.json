@@ -1,9 +1,9 @@
 {
   "name": "eslint-plugin-nx",
-  "version": "111.0.0",
+  "version": "112.0.0",
   "main": "./index.js",
   "peerDependencies": {
-    "@typescript-eslint/parser": "~5.10.0",
+    "@typescript-eslint/parser": "^5.29.0",
     "eslint-config-prettier": "^8.1.0"
   },
   "peerDependenciesMeta": {
@@ -14,7 +14,7 @@
   "dependencies": {
     "@nrwl/devkit": "14.5.4",
     "@nrwl/workspace": "14.5.4",
-    "@typescript-eslint/experimental-utils": "~5.10.0",
+    "@typescript-eslint/utils": "^5.29.0",
     "chalk": "4.1.0",
     "confusing-browser-globals": "^1.0.9"
   }
