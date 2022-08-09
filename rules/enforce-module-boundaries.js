@@ -183,7 +183,10 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
                                     return;
                                 }
                                 // imported JS functions to remap
-                                const imports = specifiers.map((s) => s.imported.name);
+                                const imports = specifiers.map((s) => {
+                                    const name = (s.imported && s.imported.name) || (s.local && s.local.name) || undefined
+                                    return name
+                                  });
                                 // process each potential entry point and try to find the imports
                                 const importsToRemap = [];
                                 for (const entryPointPath of indexTsPaths) {
