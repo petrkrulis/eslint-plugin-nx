@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getRelativeImportPath = exports.getBarrelEntryPointProjectNode = exports.getBarrelEntryPointByImportScope = void 0;
+const app_root_1 = require("nx/src/utils/app-root");
 const devkit_1 = require("@nrwl/devkit");
 const typescript_1 = require("@nrwl/workspace/src/utilities/typescript");
 const fs_1 = require("fs");
@@ -10,7 +11,7 @@ const devkit_2 = require("@nrwl/devkit");
 const devkit_3 = require("@nrwl/devkit");
 function tryReadBaseJson() {
     try {
-        return (0, devkit_1.readJsonFile)((0, devkit_1.joinPathFragments)(devkit_3.workspaceRoot, 'tsconfig.base.json'));
+        return (0, devkit_1.readJsonFile)((0, devkit_1.joinPathFragments)(devkit_3.workspaceRoot || app_root_1.appRootPath, 'tsconfig.base.json'));
     }
     catch (e) {
         devkit_2.logger.warn(`Error reading "tsconfig.base.json": \n${JSON.stringify(e)}`);

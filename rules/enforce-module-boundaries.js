@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RULE_NAME = void 0;
+const app_root_1 = require("nx/src/utils/app-root");
 const devkit_1 = require("@nrwl/devkit");
 const fileutils_1 = require("@nrwl/workspace/src/utilities/fileutils");
 const graph_utils_1 = require("@nrwl/workspace/src/utils/graph-utils");
@@ -76,7 +77,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
         /**
          * Globally cached info about workspace
          */
-        const projectPath = (0, devkit_1.normalizePath)(global.projectPath || devkit_1.workspaceRoot);
+        const projectPath = (0, devkit_1.normalizePath)(global.projectPath || devkit_1.workspaceRoot || app_root_1.appRootPath);
         const projectGraph = (0, project_graph_utils_1.readProjectGraph)(exports.RULE_NAME);
         if (!projectGraph) {
             return {};

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateVersionJsonExpression = exports.validatePackageGroup = exports.validateImplemenationNode = exports.validateEntry = exports.checkCollectionNode = exports.checkCollectionFileNode = exports.RULE_NAME = void 0;
+const app_root_1 = require("nx/src/utils/app-root");
 const devkit_1 = require("@nrwl/devkit");
 const runtime_lint_utils_1 = require("@nrwl/workspace/src/utils/runtime-lint-utils");
 const fs_1 = require("fs");
@@ -47,7 +48,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             return {};
         }
         const projectGraph = (0, project_graph_utils_1.readProjectGraph)(exports.RULE_NAME);
-        const sourceFilePath = (0, runtime_lint_utils_1.getSourceFilePath)(context.getFilename(), devkit_1.workspaceRoot);
+        const sourceFilePath = (0, runtime_lint_utils_1.getSourceFilePath)(context.getFilename(), devkit_1.workspaceRoot || app_root_1.appRootPath);
         const sourceProject = (0, runtime_lint_utils_1.findSourceProject)(projectGraph, sourceFilePath);
         // If source is not part of an nx workspace, return.
         if (!sourceProject) {
@@ -60,7 +61,7 @@ exports.default = (0, create_eslint_rule_1.createESLintRule)({
             return {};
         }
         if (!global.tsProjectRegistered) {
-            (0, register_1.registerTsProject)(devkit_1.workspaceRoot, 'tsconfig.base.json');
+            (0, register_1.registerTsProject)(devkit_1.workspaceRoot || app_root_1.appRootPath, 'tsconfig.base.json');
             global.tsProjectRegistered = true;
         }
         return {
