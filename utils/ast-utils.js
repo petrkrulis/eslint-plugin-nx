@@ -149,8 +149,16 @@ function getRelativeImportPath(exportedMember, filePath, basePath) {
             const modulePath = exportDeclaration.moduleSpecifier.text;
             let moduleFilePath = (0, devkit_1.joinPathFragments)('./', (0, path_1.dirname)(filePath), `${modulePath}.ts`);
             if (!(0, fs_1.existsSync)(moduleFilePath)) {
+                // might be a {module}.tsx
+                moduleFilePath = (0, devkit_1.joinPathFragments)('./', (0, path_1.dirname)(filePath), `${modulePath}.tsx`);
+              }
+            if (!(0, fs_1.existsSync)(moduleFilePath)) {
                 // might be a index.ts
                 moduleFilePath = (0, devkit_1.joinPathFragments)('./', (0, path_1.dirname)(filePath), `${modulePath}/index.ts`);
+            }
+            if (!(0, fs_1.existsSync)(moduleFilePath)) {
+                // might be a index.tsx
+                moduleFilePath = (0, devkit_1.joinPathFragments)('./', (0, path_1.dirname)(filePath), `${modulePath}/index.tsx`);
             }
             if (hasMemberExport(exportedMember, moduleFilePath)) {
                 const foundFilePath = getRelativeImportPath(exportedMember, moduleFilePath, basePath);
